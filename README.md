@@ -10,6 +10,8 @@ Camera demo for android things, current support capture still picture as well as
 
 Key process of setup camera preview extract from example [Android Camera2 Example][AndroidCamera2].
 
+In order to support camera preview, you should enable hardware acceleration for your `Activity` or `Application`. More information about hardware acceleration, please refer to [Android Things Realse Notes][AndroidThingsRleaseNotes] and [Android Hardware Acceleration][HardwareAcceleration].
+
 ## Capture still picutre support
 
 Key process of capture still picture extract from example [Doorbell][Doorbell].
@@ -38,3 +40,5 @@ In `CameraPreviewActivity`:
 
 [Doorbell]: https://github.com/androidthings/doorbell
 [AndroidCamera2]: [https://github.com/googlesamples/android-Camera2Basic]
+[AndroidThingsRleaseNotes]: https://developer.android.com/things/preview/releases.html
+[HardwareAcceleration]: https://developer.android.com/guide/topics/graphics/hardware-accel.html
