@@ -22,7 +22,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".CameraPreviewActivity"></activity>
+        <activity android:name=".CameraPreviewActivity"
+            android:hardwareAccelerated="true"></activity>
     </application>
 
 </manifest>

@@ -49,28 +49,17 @@ class TakePictureActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera)
-
-        mCameraThread = HandlerThread("CameraBackground")
-        mCameraThread.start()
-        mCameraHandler = Handler(mCameraThread.looper)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        mCamera = DemoCamera()
-        mCamera.initializeCamera(this, mCameraHandler, mOnImageAvailableListener)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        mCamera.shutDown()
     }
 
     override fun onResume() {
         super.onResume()
+        startBackgroundThread()
+        mCamera = DemoCamera(mOnImageAvailableListener, mCameraHandler)
+        mCamera.setUpCameraOutputs(this, 0, 0)
+        mCamera.openCamera(this)
+
         // Initial button driver.
         try {
-
             mButtonDriver1 = ButtonInputDriver(BUTTON_GPIO_PIN_1, Button.LogicState.PRESSED_WHEN_LOW,
                     KeyEvent.KEYCODE_ENTER)
         } catch (ex: IOException) {
@@ -105,6 +94,9 @@ class TakePictureActivity : Activity() {
             Log.d(TAG, "Button2 error when close button driver.")
         }
         mButtonDriver2 = null
+
+        mCamera.shutDown()
+        stopBackgroudThread()
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
@@ -119,11 +111,6 @@ class TakePictureActivity : Activity() {
             return true
         }
         return super.onKeyUp(keyCode, event)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mCameraThread.quitSafely()
     }
 
     private val mOnImageAvailableListener = ImageReader.OnImageAvailableListener { reader ->
@@ -142,6 +129,21 @@ class TakePictureActivity : Activity() {
         runOnUiThread {
             val imageView = findViewById<ImageView>(R.id.imageView)
             imageView.setImageBitmap(bitmap)
+        }
+    }
+
+    private fun startBackgroundThread() {
+        mCameraThread = HandlerThread("CameraBackground")
+        mCameraThread.start()
+        mCameraHandler = Handler(mCameraThread.looper)
+    }
+
+    private fun stopBackgroudThread() {
+        mCameraThread.quitSafely()
+        try {
+            mCameraThread.join()
+        } catch (ex: InterruptedException) {
+            ex.printStackTrace()
         }
     }
 }
