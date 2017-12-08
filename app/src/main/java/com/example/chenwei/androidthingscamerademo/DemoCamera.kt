@@ -25,6 +25,7 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
     private var mImageReader: ImageReader? = null
     private var mCameraDevice: CameraDevice? = null
     private var mCaptureSession: CameraCaptureSession? = null
+    private var mCaptureSessionForImage: CameraCaptureSession? = null
     private var mPreviewSize: Size? = null
     private var mFlashSupported = false
     private var mSupportedAFModes: IntArray = kotlin.IntArray(0)
@@ -53,11 +54,19 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
                     // Nothing to do
                 }
                 STATE.STATE_PICTURE_TAKEN -> {
-                    session.close()
+                    // session may not equal to mCaptureSessionForImage when take picture while
+                    // preview. In this case, leave session as it is, it will close automatically
+                    // because next call of createCaptureSession(...) will cause the previous
+                    // session to close according to the API of CameraDevice:
+                    // https://developer.android.com/reference/android/hardware/camera2/CameraDevice.html#createCaptureSession(java.util.List<android.view.Surface>, android.hardware.camera2.CameraCaptureSession.StateCallback, android.os.Handler)
+                    if (mCaptureSessionForImage == session) {
+                        Log.d(TAG, "Close take picture session: $session")
+                        session.close()
+                    }
                     mCaptureSession = null
-                    Log.d(TAG, "CaptureSession closed")
                     // Reset to preview state
                     mState = STATE.STATE_PREVIEW
+                    createPreviewSession()
                 }
             }
         }
@@ -259,11 +268,18 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
             Log.d(TAG, "Cannot capture image. Camera not initialized")
             return
         }
+        mCaptureSession?.stopRepeating()
+        mCaptureSession?.abortCaptures()
         try {
             mCameraDevice!!.createCaptureSession(Collections.singletonList(mImageReader!!.surface),
                     object : CameraCaptureSession.StateCallback() {
+                        override fun onClosed(session: CameraCaptureSession?) {
+                            Log.d(TAG, "Take picture session closed, session: $session")
+                            mCaptureSessionForImage = null
+                        }
+
                         override fun onConfigureFailed(session: CameraCaptureSession?) {
-                            Log.d(TAG, "Failed to configure camera")
+                            Log.d(TAG, "Failed to configure take picture session: $session")
                         }
 
                         override fun onConfigured(session: CameraCaptureSession?) {
@@ -271,7 +287,8 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
                                 return
                             }
                             mCaptureSession = session
-                            Log.d(TAG, "Session initialized")
+                            mCaptureSessionForImage = session
+                            Log.d(TAG, "Take picture session initialized, session: $session")
                             triggerImageCapture()
                         }
                     }, null)
@@ -289,6 +306,7 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
                 captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
             }
             mState = STATE.STATE_PICTURE_TAKEN
+            Log.d(TAG, "Use session to capture picture, session: $mCaptureSession")
             mCaptureSession!!.capture(captureBuilder.build(), mCaptureCallback, null)
         } catch (ex: CameraAccessException) {
             Log.d(TAG, "Camera capture exception", ex)
@@ -303,28 +321,34 @@ class DemoCamera(private val mImageAvailableListener: ImageReader.OnImageAvailab
         texture.setDefaultBufferSize(mPreviewSize!!.width, mPreviewSize!!.height)
         val surface = Surface(texture)
 
-        mCameraDevice!!.createCaptureSession(Collections.singletonList(surface), object : CameraCaptureSession.StateCallback() {
-            override fun onConfigureFailed(session: CameraCaptureSession) {
-                Log.d(TAG, "Create preview capture session failed")
-            }
+        //  V4L2CameraHAL: setupStreams:384: V4L2 only supports 1 stream configuration at a time
+        mCameraDevice!!.createCaptureSession(Collections.singletonList(surface),
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onClosed(session: CameraCaptureSession?) {
+                        Log.d(TAG, "Camera preview session closed, session: $session")
+                    }
 
-            override fun onConfigured(session: CameraCaptureSession?) {
-                if (mCameraDevice == null) {
-                    return
-                }
-                mCaptureSession = session
-                Log.d(TAG, "Camera preview session initialized")
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        Log.d(TAG, "Create preview capture session failed, session: $session")
+                    }
 
-                mPreviewRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                mPreviewRequestBuilder!!.addTarget(surface)
-                setAutoFlash(mPreviewRequestBuilder!!)
-                if (CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE in mSupportedAFModes) {
-                    mPreviewRequestBuilder!!.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                }
-                mPreviewRequest = mPreviewRequestBuilder!!.build()
-                mCaptureSession!!.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler)
-            }
-        }, null)
+                    override fun onConfigured(session: CameraCaptureSession?) {
+                        if (mCameraDevice == null) {
+                            return
+                        }
+                        mCaptureSession = session
+                        Log.d(TAG, "Camera preview session initialized, session: $session")
+
+                        mPreviewRequestBuilder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                        mPreviewRequestBuilder!!.addTarget(surface)
+                        setAutoFlash(mPreviewRequestBuilder!!)
+                        if (CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE in mSupportedAFModes) {
+                            mPreviewRequestBuilder!!.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                        }
+                        mPreviewRequest = mPreviewRequestBuilder!!.build()
+                        mCaptureSession!!.setRepeatingRequest(mPreviewRequest, mCaptureCallback, mBackgroundHandler)
+                    }
+                }, null)
     }
 
     private fun setAutoFlash(requestBuilder: CaptureRequest.Builder) {

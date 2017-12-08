@@ -94,7 +94,8 @@ class CameraPreviewActivity : Activity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_A) {
-            // TODO: start camera preview
+            Log.d(TAG, "Take picture while preview")
+            mCamera.tackPicture()
             return true
         }
         if (keyCode == KeyEvent.KEYCODE_B) {
@@ -148,5 +149,14 @@ class CameraPreviewActivity : Activity() {
 
     private val mOnImageAvailableListener = ImageReader.OnImageAvailableListener { reader ->
         Log.d(TAG, "Image available now")
+        // Do whatever you want here with the new still picture.
+        /*
+        val image = reader.acquireLatestImage()
+        val imageBuf = image.planes[0].buffer
+        val imageBytes = ByteArray(imageBuf.remaining())
+        imageBuf.get(imageBytes)
+        image.close()
+        Log.d(TAG, "Still image size: ${imageBytes.size}")
+        */
     }
 }
