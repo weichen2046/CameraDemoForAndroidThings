@@ -41,6 +41,6 @@ In `CameraPreviewActivity`:
 <!-- lins -->
 
 [Doorbell]: https://github.com/androidthings/doorbell
-[AndroidCamera2]: [https://github.com/googlesamples/android-Camera2Basic]
+[AndroidCamera2]: https://github.com/googlesamples/android-Camera2Basic
 [AndroidThingsRleaseNotes]: https://developer.android.com/things/preview/releases.html
 [HardwareAcceleration]: https://developer.android.com/guide/topics/graphics/hardware-accel.html
